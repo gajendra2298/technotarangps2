@@ -10,7 +10,9 @@ import { ProjectUpdate } from './schemas/project-update.schema';
 import { AiService } from '../ai/ai.service';
 import { UsersService } from '../users/users.service';
 import { createPublicClient, http } from 'viem';
-import { mainnet, sepolia } from 'viem/chains';
+import { mainnet, sepolia, hardhat } from 'viem/chains';
+import { ConfigService } from '@nestjs/config';
+import { SubmitProjectDto } from './dto/submit-project.dto';
 
 @Injectable()
 export class ProjectsService {
@@ -22,11 +24,14 @@ export class ProjectsService {
     private projectUpdateModel: Model<ProjectUpdate>,
     private aiService: AiService,
     private usersService: UsersService,
+    private configService: ConfigService,
   ) {
-    // Initializing client with Sepolia for transaction verification
+    const rpcUrl = this.configService.get<string>('BLOCKCHAIN_RPC_URL') || 'http://127.0.0.1:8545';
+    const isLocal = rpcUrl.includes('127.0.0.1') || rpcUrl.includes('localhost');
+
     this.publicClient = createPublicClient({
-      chain: sepolia,
-      transport: http(),
+      chain: isLocal ? hardhat : sepolia,
+      transport: http(rpcUrl),
     });
   }
 
@@ -117,8 +122,11 @@ export class ProjectsService {
       });
 
       // Confirm it's the right contract and method
-      // For simplicity in this demo, we check value and sender.
-      // In production, we'd decode input data to verify function name and arguments.
+      const escrowAddress = this.configService.get<string>('ESCROW_CONTRACT_ADDRESS');
+      if (escrowAddress && tx.to?.toLowerCase() !== escrowAddress.toLowerCase()) {
+        throw new BadRequestException(`Transaction was not sent to the correct escrow contract. Expected ${escrowAddress}, got ${tx.to}`);
+      }
+
       const expectedWei = BigInt(Math.round(parseFloat(amount) * 1e18));
       if (tx.value < expectedWei) {
         throw new BadRequestException(`Insufficient funding amount. Expected ${amount} ETH.`);
@@ -145,6 +153,10 @@ export class ProjectsService {
       }
 
       // Verify contract and value if possible
+      const escrowAddress = this.configService.get<string>('ESCROW_CONTRACT_ADDRESS');
+      if (escrowAddress && receipt.to?.toLowerCase() !== escrowAddress.toLowerCase()) {
+        throw new BadRequestException(`Transaction was not sent to the correct escrow contract. Expected ${escrowAddress}, got ${receipt.to}`);
+      }
       // Then save
       const newProject = new this.projectModel({
         ...projectData,
@@ -270,5 +282,59 @@ export class ProjectsService {
       .populate('freelancerId', 'name avatar role')
       .sort({ createdAt: -1 })
       .exec();
+  }
+
+  async submitProject(id: string, rawFreelancerId: string, data: SubmitProjectDto) {
+    const freelancerId = await this.resolveUserId(rawFreelancerId);
+    const project = await this.findOne(id);
+
+    if (project.assignedFreelancerId?.toString() !== freelancerId) {
+      throw new BadRequestException('Only the assigned freelancer can submit final work');
+    }
+
+    if (project.status !== 'IN_PROGRESS') {
+      throw new BadRequestException('Project must be in progress to be submitted');
+    }
+
+    project.completion = {
+      ...data,
+      submittedAt: new Date(),
+      submittedBy: freelancerId,
+    };
+    project.status = 'SUBMITTED';
+
+    return project.save();
+  }
+
+  async approveSubmission(id: string, rawClientId: string, transactionHash: string) {
+    const clientId = await this.resolveUserId(rawClientId);
+    const project = await this.findOne(id);
+
+    if (project.clientId?.toString() !== clientId) {
+      throw new BadRequestException('Only the project owner can approve the submission');
+    }
+
+    if (project.status !== 'SUBMITTED') {
+      throw new BadRequestException('Project has not been submitted for review');
+    }
+
+    if (!transactionHash) {
+      throw new BadRequestException('Transaction hash is required for final payment release');
+    }
+
+    try {
+      const receipt = await this.publicClient.waitForTransactionReceipt({
+        hash: transactionHash as `0x${string}`,
+      });
+
+      if (receipt.status !== 'success') {
+        throw new BadRequestException('Blockchain transaction failed');
+      }
+    } catch (err) {
+      throw new BadRequestException(`On-chain verification failed: ${err.message}`);
+    }
+
+    project.status = 'COMPLETED';
+    return project.save();
   }
 }

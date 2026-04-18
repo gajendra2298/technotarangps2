@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { SubmitProjectDto } from './dto/submit-project.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/schemas/user.schema';
@@ -168,5 +169,27 @@ export class ProjectsController {
   @Get(':id/updates')
   getUpdates(@Param('id') id: string) {
     return this.projectsService.getUpdates(id);
+  }
+
+  @Post(':id/submit')
+  @Roles(UserRole.FREELANCER)
+  @ApiOperation({ summary: 'Submit final work for the project (Freelancer only)' })
+  submitProject(
+    @Param('id') id: string,
+    @Request() req,
+    @Body() submitProjectDto: SubmitProjectDto,
+  ) {
+    return this.projectsService.submitProject(id, req.user.sub, submitProjectDto);
+  }
+
+  @Post(':id/approve-submission')
+  @Roles(UserRole.CLIENT)
+  @ApiOperation({ summary: 'Approve final project submission and release remaining funds (Client only)' })
+  approveSubmission(
+    @Param('id') id: string,
+    @Request() req,
+    @Body('transactionHash') transactionHash: string,
+  ) {
+    return this.projectsService.approveSubmission(id, req.user.sub, transactionHash);
   }
 }

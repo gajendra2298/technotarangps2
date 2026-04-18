@@ -71,5 +71,12 @@ export const abi = [
     ],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "_projectId", "type": "uint256" }],
+    "name": "releaseAllPayments",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ] as const;

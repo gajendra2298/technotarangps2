@@ -73,7 +73,7 @@ export function Dashboard() {
     0,
   ) || 0;
 
-  const activeCount = projectList.filter((p: any) => p.status === "IN_PROGRESS").length;
+  const activeCount = projectList.filter((p: any) => ['IN_PROGRESS', 'SUBMITTED', 'FUNDED', 'DISPUTED'].includes(p.status)).length;
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -162,7 +162,7 @@ function ClientDashboardView({ projects, onSelect }: { projects: any[], onSelect
             <Clock className="w-3 h-3" /> Pending <span className="opacity-50 ml-1">({projects.filter(p => p.status === 'OPEN').length})</span>
           </TabsTrigger>
           <TabsTrigger value="IN_PROGRESS" className="gap-2">
-            <Zap className="w-3 h-3" /> In Progress <span className="opacity-50 ml-1">({projects.filter(p => p.status === 'IN_PROGRESS').length})</span>
+            <Zap className="w-3 h-3" /> In Progress <span className="opacity-50 ml-1">({projects.filter(p => ['IN_PROGRESS', 'SUBMITTED', 'FUNDED', 'DISPUTED'].includes(p.status)).length})</span>
           </TabsTrigger>
           <TabsTrigger value="COMPLETED" className="gap-2">
             <CheckCircle2 className="w-3 h-3" /> Completed <span className="opacity-50 ml-1">({projects.filter(p => p.status === 'COMPLETED').length})</span>
@@ -174,7 +174,7 @@ function ClientDashboardView({ projects, onSelect }: { projects: any[], onSelect
         <ProjectGrid projects={projects.filter(p => p.status === 'OPEN')} onSelect={onSelect} emptyMessage="No pending projects. Start by creating a new workstream." />
       </TabsContent>
       <TabsContent value="IN_PROGRESS">
-        <ProjectGrid projects={projects.filter(p => p.status === 'IN_PROGRESS')} onSelect={onSelect} emptyMessage="No active projects. Accept a bid to get started." />
+        <ProjectGrid projects={projects.filter(p => ['IN_PROGRESS', 'SUBMITTED', 'FUNDED', 'DISPUTED'].includes(p.status))} onSelect={onSelect} emptyMessage="No active projects. Accept a bid to get started." />
       </TabsContent>
       <TabsContent value="COMPLETED">
         <ProjectGrid projects={projects.filter(p => p.status === 'COMPLETED')} onSelect={onSelect} emptyMessage="No completed projects yet." />
@@ -192,7 +192,7 @@ function FreelancerDashboardView({ available, assigned, onSelect }: { available:
             <Globe className="w-3 h-3" /> Available Projects <span className="opacity-50 ml-1">({available.length})</span>
           </TabsTrigger>
           <TabsTrigger value="ACTIVE" className="gap-2">
-            <Zap className="w-3 h-3" /> Active Work <span className="opacity-50 ml-1">({assigned.filter(p => p.status === 'IN_PROGRESS').length})</span>
+            <Zap className="w-3 h-3" /> Active Work <span className="opacity-50 ml-1">({assigned.filter(p => ['IN_PROGRESS', 'SUBMITTED', 'FUNDED', 'DISPUTED'].includes(p.status)).length})</span>
           </TabsTrigger>
           <TabsTrigger value="HISTORY" className="gap-2">
             <CheckCircle2 className="w-3 h-3" /> Completed <span className="opacity-50 ml-1">({assigned.filter(p => p.status === 'COMPLETED').length})</span>
@@ -212,7 +212,7 @@ function FreelancerDashboardView({ available, assigned, onSelect }: { available:
         <ProjectGrid projects={available} onSelect={onSelect} emptyMessage="No projects currently available for bidding." />
       </TabsContent>
       <TabsContent value="ACTIVE">
-        <ProjectGrid projects={assigned.filter(p => p.status === 'IN_PROGRESS')} onSelect={onSelect} emptyMessage="You don't have any active projects currently." />
+        <ProjectGrid projects={assigned.filter(p => ['IN_PROGRESS', 'SUBMITTED', 'FUNDED', 'DISPUTED'].includes(p.status))} onSelect={onSelect} emptyMessage="You don't have any active projects currently." />
       </TabsContent>
       <TabsContent value="HISTORY">
         <ProjectGrid projects={assigned.filter(p => p.status === 'COMPLETED')} onSelect={onSelect} emptyMessage="No completed work history yet." />

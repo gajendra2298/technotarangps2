@@ -71,6 +71,10 @@ export const projectsApi = {
   addUpdate: (id: string, data: { description: string; files: string[] }) =>
     api.post(`/projects/${id}/update`, data),
   getUpdates: (id: string) => api.get(`/projects/${id}/updates`),
+  submitFinalWork: (id: string, data: any) =>
+    api.post(`/projects/${id}/submit`, data),
+  approveSubmission: (id: string, transactionHash: string) =>
+    api.post(`/projects/${id}/approve-submission`, { transactionHash }),
 };
 
 export const bidsApi = {

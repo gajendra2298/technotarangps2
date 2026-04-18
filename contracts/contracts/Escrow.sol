@@ -140,12 +140,12 @@ contract FreelanceEscrow is ReentrancyGuard, Ownable {
     /**
      * @dev Approves a milestone and releases funds to the freelancer.
      */
-    function releasePayment(uint256 _projectId, uint256 _milestoneId) external nonReentrant {
+    function releasePayment(uint256 _projectId, uint256 _milestoneId) public nonReentrant {
         Project storage project = projects[_projectId];
         if (msg.sender != project.client) revert OnlyClient();
         
         Milestone storage milestone = project.milestones[_milestoneId];
-        if (milestone.status != MilestoneStatus.Submitted) revert MilestoneNotSubmitted();
+        if (milestone.status != MilestoneStatus.Submitted && milestone.status != MilestoneStatus.Funded) revert MilestoneNotSubmitted();
 
         uint256 amount = milestone.amount;
         milestone.status = MilestoneStatus.Approved;
@@ -154,6 +154,29 @@ contract FreelanceEscrow is ReentrancyGuard, Ownable {
         if (!success) revert TransferFailed();
 
         emit MilestoneApproved(_projectId, _milestoneId, amount);
+    }
+
+    /**
+     * @dev Approves all pending/submitted milestones and releases all remaining funds.
+     */
+    function releaseAllPayments(uint256 _projectId) external nonReentrant {
+        Project storage project = projects[_projectId];
+        if (msg.sender != project.client) revert OnlyClient();
+
+        uint256 totalToRelease = 0;
+        for (uint256 i = 0; i < project.milestoneCount; i++) {
+            Milestone storage milestone = project.milestones[i];
+            if (milestone.status == MilestoneStatus.Funded || milestone.status == MilestoneStatus.Submitted) {
+                totalToRelease += milestone.amount;
+                milestone.status = MilestoneStatus.Approved;
+                emit MilestoneApproved(_projectId, i, milestone.amount);
+            }
+        }
+
+        if (totalToRelease > 0) {
+            (bool success, ) = payable(project.freelancer).call{value: totalToRelease}("");
+            if (!success) revert TransferFailed();
+        }
     }
 
     function disputeMilestone(uint256 _projectId, uint256 _milestoneId) external {

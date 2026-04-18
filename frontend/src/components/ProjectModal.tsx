@@ -8,6 +8,12 @@ import {
   Send,
   CheckCircle,
   BrainCircuit,
+  GitBranch,
+  FileText,
+  Image as ImageIcon,
+  Paperclip,
+  Download,
+  AlertTriangle,
 } from "lucide-react";
 import { Button, Card, CardHeader, CardTitle, CardContent } from "./ui";
 import { StatusBadge } from "./StatusBadge";
@@ -29,7 +35,7 @@ interface ProjectModalProps {
 export function ProjectModal({ project, onClose }: ProjectModalProps) {
   const dispatch = useAppDispatch();
   const { role } = useAppSelector((state) => state.auth);
-  const { fundProject, assignFreelancer, releasePayment, isPending } =
+  const { fundProject, assignFreelancer, releasePayment, releaseAllPayments, isPending } =
     useEscrow();
 
   const [submitting, setSubmitting] = useState<number | null>(null);
@@ -47,6 +53,19 @@ export function ProjectModal({ project, onClose }: ProjectModalProps) {
     fileUrl: "",
   });
   const [isPostingUpdate, setIsPostingUpdate] = useState(false);
+
+  // Final Submission states
+  const [finalSubmissionForm, setFinalSubmissionForm] = useState({
+    description: "",
+    github: "",
+    zipUrl: "",
+    images: [] as string[],
+    docs: [] as string[],
+  });
+  const [isSubmittingFinal, setIsSubmittingFinal] = useState(false);
+  const [isApprovingFinal, setIsApprovingFinal] = useState(false);
+  const [imageUrlInput, setImageUrlInput] = useState("");
+  const [docUrlInput, setDocUrlInput] = useState("");
 
   useEffect(() => {
     if (project.status === "OPEN" || project.status === "IN_PROGRESS") {
@@ -182,6 +201,45 @@ export function ProjectModal({ project, onClose }: ProjectModalProps) {
       dispatch(fetchProjects());
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleFinalSubmit = async () => {
+    if (!finalSubmissionForm.description) return toast.error("Description is required");
+    if (!finalSubmissionForm.github && !finalSubmissionForm.zipUrl) {
+      return toast.error("At least one proof of work is required (GitHub or ZIP)");
+    }
+
+    setIsSubmittingFinal(true);
+    try {
+      await projectsApi.submitFinalWork(project._id, finalSubmissionForm);
+      toast.success("Project submitted successfully! Waiting for client review.");
+      dispatch(fetchProjects());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmittingFinal(false);
+    }
+  };
+
+  const handleFinalApprove = async () => {
+    try {
+      setIsApprovingFinal(true);
+      const tx = await releaseAllPayments(project.blockchainId);
+      
+      const hash =
+        typeof tx === "string"
+          ? tx
+          : (tx as any)?.hash || (tx as any)?.transactionHash;
+
+      await projectsApi.approveSubmission(project._id, hash);
+      toast.success("Project approved and final payments released! 🚀");
+      dispatch(fetchProjects());
+      onClose();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsApprovingFinal(false);
     }
   };
 
@@ -567,11 +625,261 @@ export function ProjectModal({ project, onClose }: ProjectModalProps) {
                 ))}
               </div>
             </section>
-          </div>
 
-          {/* Sidebar Info */}
-          <div className="space-y-6">
-            <section className="space-y-3">
+            {/* FINAL SUBMISSION UI FOR FREELANCER */}
+            {role === "FREELANCER" && project.status === "IN_PROGRESS" && (
+              <section className="space-y-4 pt-4 border-t border-border/50">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-black bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">
+                    🚀 Final Project Delivery
+                  </h3>
+                </div>
+                <Card className="bg-primary/5 border-primary/20 shadow-xl overflow-hidden relative">
+                  <div className="absolute top-0 right-0 p-4 opacity-5">
+                    <Send className="w-24 h-24" />
+                  </div>
+                  <CardContent className="p-6 space-y-6">
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Deliverable Description</label>
+                      <textarea
+                        className="w-full bg-background border border-border rounded-xl p-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none min-h-[120px]"
+                        placeholder="Detail exactly what is being delivered in this final submission..."
+                        value={finalSubmissionForm.description}
+                        onChange={(e) => setFinalSubmissionForm({...finalSubmissionForm, description: e.target.value})}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                          <GitBranch className="w-3 h-3" /> GitHub Repository
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="https://github.com/..."
+                          className="w-full bg-background border border-border rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                          value={finalSubmissionForm.github}
+                          onChange={(e) => setFinalSubmissionForm({...finalSubmissionForm, github: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                          <Download className="w-3 h-3" /> ZIP/Source URL
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="Link to ZIP file..."
+                          className="w-full bg-background border border-border rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                          value={finalSubmissionForm.zipUrl}
+                          onChange={(e) => setFinalSubmissionForm({...finalSubmissionForm, zipUrl: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                          <ImageIcon className="w-3 h-3" /> Proof Images (URLs)
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="url"
+                            placeholder="Add image URL..."
+                            className="flex-1 bg-background border border-border rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                            value={imageUrlInput}
+                            onChange={(e) => setImageUrlInput(e.target.value)}
+                          />
+                          <Button 
+                            variant="secondary" 
+                            onClick={() => {
+                              if (imageUrlInput) {
+                                setFinalSubmissionForm({...finalSubmissionForm, images: [...finalSubmissionForm.images, imageUrlInput]});
+                                setImageUrlInput("");
+                              }
+                            }}
+                          >Add</Button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {finalSubmissionForm.images.map((img, i) => (
+                            <div key={i} className="px-3 py-1 bg-secondary rounded-full text-xs flex items-center gap-2">
+                              <span className="truncate max-w-[100px]">{img}</span>
+                              <X className="w-3 h-3 cursor-pointer" onClick={() => setFinalSubmissionForm({...finalSubmissionForm, images: finalSubmissionForm.images.filter((_, idx) => idx !== i)})} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                          <FileText className="w-3 h-3" /> Documentation (URLs)
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="url"
+                            placeholder="Add doc URL..."
+                            className="flex-1 bg-background border border-border rounded-xl p-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                            value={docUrlInput}
+                            onChange={(e) => setDocUrlInput(e.target.value)}
+                          />
+                          <Button 
+                            variant="secondary"
+                            onClick={() => {
+                              if (docUrlInput) {
+                                setFinalSubmissionForm({...finalSubmissionForm, docs: [...finalSubmissionForm.docs, docUrlInput]});
+                                setDocUrlInput("");
+                              }
+                            }}
+                          >Add</Button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {finalSubmissionForm.docs.map((doc, i) => (
+                            <div key={i} className="px-3 py-1 bg-secondary rounded-full text-xs flex items-center gap-2">
+                              <span className="truncate max-w-[100px]">{doc}</span>
+                              <X className="w-3 h-3 cursor-pointer" onClick={() => setFinalSubmissionForm({...finalSubmissionForm, docs: finalSubmissionForm.docs.filter((_, idx) => idx !== i)})} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={handleFinalSubmit}
+                      disabled={isSubmittingFinal}
+                      className="w-full h-14 bg-primary hover:bg-primary/90 text-white shadow-2xl shadow-primary/30 rounded-2xl gap-3 text-lg font-bold"
+                    >
+                      {isSubmittingFinal ? (
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                      ) : (
+                        <>
+                          <Send className="w-5 h-5" /> Mark Project as Completed
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </section>
+            )}
+
+            {/* FINAL REVIEW UI FOR CLIENT */}
+            {project.status === "SUBMITTED" && (
+              <section className="space-y-4 pt-4 border-t border-border/50">
+                 <h3 className="text-xl font-black bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent flex items-center gap-2">
+                  <CheckCircle className="w-6 h-6 text-green-500" /> Review Final Submission
+                </h3>
+                
+                <Card className="border-green-500/30 bg-green-500/5 shadow-2xl">
+                  <CardContent className="p-6 space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Submission Description</label>
+                      <p className="p-4 bg-background border rounded-xl text-sm leading-relaxed">
+                        {project.completion?.description}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {project.completion?.github && (
+                        <a href={project.completion.github} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-4 bg-card border rounded-2xl hover:border-primary group transition-all">
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+                            <GitBranch className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Source Code</p>
+                            <p className="text-sm font-bold">GitHub Repository <ExternalLink className="inline w-3 h-3 opacity-50" /></p>
+                          </div>
+                        </a>
+                      )}
+                      {project.completion?.zipUrl && (
+                        <a href={project.completion.zipUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-4 bg-card border rounded-2xl hover:border-primary group transition-all">
+                          <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                            <Download className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Project Files</p>
+                            <p className="text-sm font-bold">Download ZIP <ExternalLink className="inline w-3 h-3 opacity-50" /></p>
+                          </div>
+                        </a>
+                      )}
+                    </div>
+
+                    {(project.completion?.images?.length > 0 || project.completion?.docs?.length > 0) && (
+                       <div className="space-y-4">
+                          {project.completion?.images?.length > 0 && (
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Deliverable Proofs (Images)</label>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {project.completion.images.map((img: string, i: number) => (
+                                  <a key={i} href={img} target="_blank" rel="noreferrer" className="aspect-video bg-muted rounded-xl border overflow-hidden hover:opacity-80 transition-opacity">
+                                    <img src={img} alt="proof" className="w-full h-full object-cover" />
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {project.completion?.docs?.length > 0 && (
+                             <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Documentation</label>
+                              <div className="flex flex-wrap gap-2">
+                                {project.completion.docs.map((doc: string, i: number) => (
+                                  <a key={i} href={doc} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-3 py-2 bg-card border rounded-xl text-xs font-bold hover:border-primary transition-all">
+                                    <FileText className="w-4 h-4 text-primary" />
+                                    {doc.split('/').pop() || 'Document'}
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                       </div>
+                    )}
+
+                    {role === "CLIENT" && (
+                      <div className="pt-4 space-y-3">
+                        <div className="flex items-center gap-3 p-4 rounded-2xl bg-warning/10 border border-warning/20 mb-2">
+                          <AlertTriangle className="w-5 h-5 text-warning shrink-0" />
+                          <p className="text-xs text-warning-foreground font-medium">
+                            Approving this will release <strong>all remaining funds</strong> in the escrow to the freelancer. This action is irreversible on the blockchain.
+                          </p>
+                        </div>
+                        <Button
+                          onClick={handleFinalApprove}
+                          disabled={isApprovingFinal || isPending}
+                          className="w-full h-14 bg-green-600 hover:bg-green-700 text-white shadow-2xl shadow-green-500/30 rounded-2xl gap-3 text-lg font-black"
+                        >
+                          {isApprovingFinal || isPending ? (
+                            <Loader2 className="w-6 h-6 animate-spin" />
+                          ) : (
+                            <>
+                              <ShieldCheck className="w-6 h-6" /> Approve & Release Payment
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </section>
+            )}
+
+            {project.status === "COMPLETED" && (
+                <section className="space-y-4 pt-4 border-t border-border/50">
+                   <div className="p-8 border border-green-500/20 bg-green-500/5 rounded-[2.5rem] flex flex-col items-center text-center gap-4">
+                      <div className="w-20 h-20 bg-green-500/10 rounded-3xl flex items-center justify-center">
+                        <CheckCircle className="w-10 h-10 text-green-500" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-black text-green-500">Project Completed!</h3>
+                        <p className="text-muted-foreground text-sm mt-1 max-w-sm">
+                          The final work has been delivered and all funds have been successfully released through the decentralized escrow.
+                        </p>
+                      </div>
+                      <div className="flex gap-3 mt-2">
+                         <Button variant="outline" className="rounded-xl font-bold" onClick={() => window.open(project.completion?.github)}>View Github</Button>
+                         <Button variant="outline" className="rounded-xl font-bold" onClick={() => window.open(project.completion?.zipUrl)}>Download Source</Button>
+                      </div>
+                   </div>
+                </section>
+            )}
+
+            <section className="space-y-4">
               <h4 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">
                 Participants
               </h4>

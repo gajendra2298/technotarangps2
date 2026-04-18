@@ -93,11 +93,30 @@ export function useEscrow() {
     }
   };
 
+  const releaseAllPayments = async (projectId: number) => {
+    try {
+      const hash = await writeContractAsync({
+        address: ESCROW_ADDRESS,
+        abi,
+        functionName: 'releaseAllPayments',
+        args: [BigInt(projectId)],
+      });
+      toast.info('Final release transaction sent. Waiting for confirmation...');
+      await waitForTransactionReceipt(config, { hash });
+      toast.success('All remaining payments released!');
+      return hash;
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to release all payments');
+      throw err;
+    }
+  };
+
   return {
     createAndFundProject,
     fundProject,
     assignFreelancer,
     releasePayment,
+    releaseAllPayments,
     isPending: isWritePending || isTxLoading,
     isSuccess: isTxSuccess,
     hash,

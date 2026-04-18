@@ -83,8 +83,30 @@ export class Project extends Document {
   @Prop({ required: false })
   blockchainId?: number; // The project ID on-chain
 
+  @Prop({
+    type: {
+      description: String,
+      github: String,
+      zipUrl: String,
+      images: [String],
+      docs: [String],
+      submittedAt: Date,
+      submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    },
+    required: false
+  })
+  completion?: {
+    description: string;
+    github?: string;
+    zipUrl?: string;
+    images?: string[];
+    docs?: string[];
+    submittedAt: Date;
+    submittedBy: string;
+  };
+
   @Prop({ default: 'OPEN' })
-  status: 'OPEN' | 'PENDING' | 'FUNDED' | 'DISPUTED' | 'COMPLETED' | 'IN_PROGRESS';
+  status: 'OPEN' | 'PENDING' | 'FUNDED' | 'DISPUTED' | 'COMPLETED' | 'IN_PROGRESS' | 'SUBMITTED';
 }
 
 export const ProjectSchema = SchemaFactory.createForClass(Project);
