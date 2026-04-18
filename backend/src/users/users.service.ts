@@ -11,6 +11,10 @@ export class UsersService {
     return this.userModel.findOne({ clerkId }).exec();
   }
 
+  async findById(id: string): Promise<User | null> {
+    return this.userModel.findById(id).exec();
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     return this.userModel.findOne({ email }).exec();
   }
@@ -22,6 +26,10 @@ export class UsersService {
 
   async updateProfile(clerkId: string, data: Partial<User>): Promise<User | null> {
     return this.userModel.findOneAndUpdate({ clerkId }, data, { new: true }).exec();
+  }
+
+  async updateProfileById(id: string, data: Partial<User>): Promise<User | null> {
+    return this.userModel.findByIdAndUpdate(id, data, { new: true }).exec();
   }
 
   async setOtp(clerkId: string, otp: string, expiry: Date): Promise<void> {

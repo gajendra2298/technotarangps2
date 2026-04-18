@@ -10,6 +10,8 @@ import { projectsApi } from '../lib/api';
 import { toast } from 'sonner';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
 import { fetchProjects } from '../redux/slices/projectsSlice';
+import { useEscrow } from '../hooks/useEscrow';
+import { parseEther } from 'viem';
 import { useAccount } from 'wagmi';
 
 interface CreateProjectModalProps {
@@ -20,6 +22,7 @@ export function CreateProjectModal({ onClose }: CreateProjectModalProps) {
   const dispatch = useAppDispatch();
   const { address } = useAccount();
   const { user } = useAppSelector(state => state.auth);
+  const { createAndFundProject } = useEscrow();
   const [loading, setLoading] = useState(false);
   
   const [formData, setFormData] = useState({
@@ -66,6 +69,19 @@ export function CreateProjectModal({ onClose }: CreateProjectModalProps) {
 
     setLoading(true);
     try {
+      const descriptions = milestones.map(m => m.description || m.title);
+      const amounts = milestones.map(m => parseEther(m.amount || '0'));
+      const totalAmountWei = amounts.reduce((acc, curr) => acc + curr, 0n);
+
+      // 1. On-chain Transaction
+      // Since it's an "OPEN" project, we use address(0) as placeholder for freelancer
+      const hash = await createAndFundProject(
+        "0x0000000000000000000000000000000000000000", 
+        descriptions, 
+        amounts, 
+        totalAmountWei
+      );
+      // 2. Backend Sync
       const payload = {
         title: formData.title,
         description: formData.description,
@@ -73,22 +89,23 @@ export function CreateProjectModal({ onClose }: CreateProjectModalProps) {
         deadline: formData.deadline ? new Date(formData.deadline).toISOString() : undefined,
         budget: formData.budget ? parseFloat(formData.budget) : 0,
         clientId: user?._id,
-        contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS || "0x62803b9487a315487a315487a315487a315487a3",
-        blockchainId: Date.now(), // Use timestamp for unique but non-sequential ID
+        clientAddress: address,
+        contractAddress: import.meta.env.VITE_ESCROW_CONTRACT_ADDRESS || "0x62803b9487a315487a315487a315487a315487a3",
+        blockchainId: Date.now(), // This would be fetched from logs in real app
         milestones: milestones.map(m => ({
           ...m,
-          amount: parseFloat(m.amount) * 1e18, // Convert ETH to Wei
+          amount: parseEther(m.amount).toString(), // Store as string (wei)
           deadline: m.deadline ? new Date(m.deadline).toISOString() : undefined,
-          status: 'PENDING'
+          status: 'FUNDED'
         }))
       };
 
-      await projectsApi.create(payload);
-      toast.success("Project workspace initialized!");
+      await projectsApi.createAndFund(hash, payload);
+      toast.success("Project funded and deployed successfully! 🔒");
       dispatch(fetchProjects());
       onClose();
-    } catch (err) {
-      toast.error("Failed to create project");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create project");
       console.error(err);
     } finally {
       setLoading(false);
@@ -96,8 +113,8 @@ export function CreateProjectModal({ onClose }: CreateProjectModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-background/80 backdrop-blur-xl animate-in fade-in duration-300">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto border-primary/20 bg-card/50 shadow-2xl animate-in zoom-in-95 duration-300 rounded-3xl">
+    <div className="fixed inset-0 z-[60]  flex items-center justify-center p-4 bg-background/80 backdrop-blur-xl animate-in fade-in duration-300">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto no-scrollbar border-primary/20 bg-card/50 shadow-2xl animate-in zoom-in-95 duration-300 rounded-3xl">
         <div className="sticky top-0 bg-card/80 backdrop-blur-md p-6 border-b z-10 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-primary/10 rounded-lg">
@@ -246,7 +263,12 @@ export function CreateProjectModal({ onClose }: CreateProjectModalProps) {
               disabled={loading}
               className="flex-[2] h-14 bg-primary text-white text-lg font-black shadow-2xl shadow-primary/30 rounded-2xl hover:scale-[1.02] transition-transform active:scale-95"
             >
-              {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Deploy Project"}
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Processing...</span>
+                </div>
+              ) : "Create & Fund Project 💸"}
             </Button>
           </div>
         </form>

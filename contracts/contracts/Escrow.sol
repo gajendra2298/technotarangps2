@@ -61,8 +61,8 @@ contract FreelanceEscrow is ReentrancyGuard, Ownable {
         address _freelancer,
         string[] calldata _descriptions,
         uint256[] calldata _amounts
-    ) external returns (uint256) {
-        if (_freelancer == address(0)) revert InvalidAddress();
+    ) public returns (uint256) {
+        // Allowing _freelancer to be address(0) for open projects
         if (_descriptions.length != _amounts.length) revert MismatchingData();
         if (_descriptions.length == 0) revert NoMilestones();
 
@@ -87,8 +87,27 @@ contract FreelanceEscrow is ReentrancyGuard, Ownable {
         return id;
     }
 
+    function createAndFundProject(
+        address _freelancer,
+        string[] calldata _descriptions,
+        uint256[] calldata _amounts
+    ) external payable nonReentrant returns (uint256) {
+        uint256 id = createProject(_freelancer, _descriptions, _amounts);
+        Project storage project = projects[id];
+        
+        if (msg.value != project.totalAmount) revert IncorrectFunding();
+
+        project.isFunded = true;
+        for (uint256 i = 0; i < project.milestoneCount; i++) {
+            project.milestones[i].status = MilestoneStatus.Funded;
+        }
+
+        emit ProjectFunded(id, msg.value);
+        return id;
+    }
+
     function fundProject(uint256 _projectId) external payable nonReentrant {
-        Project storage project = projects[_projectId];
+         Project storage project = projects[_projectId];
         if (msg.sender != project.client) revert OnlyClient();
         if (project.isFunded) revert AlreadyFunded();
         if (msg.value != project.totalAmount) revert IncorrectFunding();
@@ -101,6 +120,14 @@ contract FreelanceEscrow is ReentrancyGuard, Ownable {
         emit ProjectFunded(_projectId, msg.value);
     }
 
+    function assignFreelancer(uint256 _projectId, address _freelancer) external {
+        Project storage project = projects[_projectId];
+        if (msg.sender != project.client) revert OnlyClient();
+        if (_freelancer == address(0)) revert InvalidAddress();
+        
+        project.freelancer = _freelancer;
+    }
+
     function submitMilestone(uint256 _projectId, uint256 _milestoneId) external {
         Project storage project = projects[_projectId];
         if (msg.sender != project.freelancer) revert OnlyFreelancer();
@@ -110,7 +137,10 @@ contract FreelanceEscrow is ReentrancyGuard, Ownable {
         emit MilestoneSubmitted(_projectId, _milestoneId);
     }
 
-    function approveMilestone(uint256 _projectId, uint256 _milestoneId) external nonReentrant {
+    /**
+     * @dev Approves a milestone and releases funds to the freelancer.
+     */
+    function releasePayment(uint256 _projectId, uint256 _milestoneId) external nonReentrant {
         Project storage project = projects[_projectId];
         if (msg.sender != project.client) revert OnlyClient();
         

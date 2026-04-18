@@ -3,6 +3,7 @@ import { Button } from './ui';
 import { useAppSelector } from '../redux/hooks';
 import { useUser, UserButton } from '@clerk/clerk-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount } from 'wagmi';
 
 interface NavbarProps {
   onProfileClick: () => void;
@@ -12,6 +13,11 @@ interface NavbarProps {
 export function Navbar({ onProfileClick, onLogoClick }: NavbarProps) {
   const { role } = useAppSelector(state => state.auth);
   const { isSignedIn } = useUser();
+  const { status } = useAccount();
+
+  // While wagmi is reconnecting to a previously connected wallet on page reload,
+  // show a skeleton so the user doesn't see a "Connect Wallet" flash.
+  const isReconnecting = status === 'reconnecting' || status === 'connecting';
 
   return (
     <nav className="border-b bg-card/50 backdrop-blur-xl sticky top-0 z-50">
@@ -46,10 +52,15 @@ export function Navbar({ onProfileClick, onLogoClick }: NavbarProps) {
             </div>
           )}
           
-          <ConnectButton 
-            accountStatus="avatar" 
-            showBalance={false}
-          />
+          {/* Show a loading skeleton while wagmi is reconnecting to avoid the "Connect Wallet" flash */}
+          {isReconnecting ? (
+            <div className="h-10 w-36 rounded-xl bg-secondary/60 animate-pulse border border-border" />
+          ) : (
+            <ConnectButton 
+              accountStatus="avatar" 
+              showBalance={false}
+            />
+          )}
           
           {isSignedIn && (
             <div className="flex items-center gap-2 border-l pl-4">
@@ -68,3 +79,4 @@ export function Navbar({ onProfileClick, onLogoClick }: NavbarProps) {
     </nav>
   );
 }
+

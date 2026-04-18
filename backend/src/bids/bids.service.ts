@@ -4,15 +4,27 @@ import { Model } from 'mongoose';
 import { Bid } from './schemas/bid.schema';
 import { Project } from '../projects/schemas/project.schema';
 import { CreateBidDto } from './dto/create-bid.dto';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class BidsService {
   constructor(
     @InjectModel(Bid.name) private bidModel: Model<Bid>,
-    @InjectModel(Project.name) private projectModel: Model<Project>
+    @InjectModel(Project.name) private projectModel: Model<Project>,
+    private usersService: UsersService,
   ) {}
 
-  async createBid(freelancerId: string, createBidDto: CreateBidDto) {
+  private async resolveFreelancerId(freelancerId: string): Promise<string> {
+    if (freelancerId.startsWith('user_')) {
+      const user = await this.usersService.findByClerkId(freelancerId);
+      if (!user) throw new NotFoundException('User not found for this session');
+      return user._id.toString();
+    }
+    return freelancerId;
+  }
+
+  async createBid(rawFreelancerId: string, createBidDto: CreateBidDto) {
+    const freelancerId = await this.resolveFreelancerId(rawFreelancerId);
     const project = await this.projectModel.findById(createBidDto.projectId);
     if (!project) throw new NotFoundException('Project not found');
     if (project.status !== 'OPEN') throw new BadRequestException('Project is not OPEN for bidding');

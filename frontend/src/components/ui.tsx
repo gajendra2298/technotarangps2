@@ -63,3 +63,50 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
     )
   }
 )
+
+const TabsContext = React.createContext<{ activeTab: string; setActiveTab: (value: string) => void } | null>(null);
+
+export const Tabs = ({ children, defaultValue }: { children: React.ReactNode, defaultValue: string }) => {
+  const [activeTab, setActiveTab] = React.useState(defaultValue);
+  return (
+    <TabsContext.Provider value={{ activeTab, setActiveTab }}>
+      <div className="space-y-4">
+        {children}
+      </div>
+    </TabsContext.Provider>
+  );
+};
+
+export const TabsList = ({ children, className }: any) => (
+  <div className={cn("inline-flex h-12 items-center justify-center rounded-2xl bg-muted/50 p-1 text-muted-foreground glass border border-border/50", className)}>
+    {children}
+  </div>
+);
+
+export const TabsTrigger = ({ value, children, className }: any) => {
+  const context = React.useContext(TabsContext);
+  if (!context) throw new Error("TabsTrigger must be used within a Tabs component");
+  const { activeTab, setActiveTab } = context;
+
+  return (
+    <button
+      onClick={() => setActiveTab(value)}
+      className={cn(
+        "inline-flex items-center justify-center whitespace-nowrap rounded-xl px-4 py-2 text-sm font-bold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 uppercase tracking-widest text-[10px]",
+        activeTab === value ? "bg-background text-foreground shadow-lg scale-105" : "hover:bg-background/50 hover:text-foreground",
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+};
+
+export const TabsContent = ({ value, children }: any) => {
+  const context = React.useContext(TabsContext);
+  if (!context) throw new Error("TabsContent must be used within a Tabs component");
+  const { activeTab } = context;
+
+  if (activeTab !== value) return null;
+  return <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">{children}</div>;
+};

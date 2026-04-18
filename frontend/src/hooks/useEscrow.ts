@@ -14,6 +14,30 @@ export function useEscrow() {
     hash,
   });
 
+  const createAndFundProject = async (
+    freelancer: `0x${string}`,
+    descriptions: string[],
+    amounts: bigint[],
+    totalAmount: bigint
+  ) => {
+    try {
+      const hash = await writeContractAsync({
+        address: ESCROW_ADDRESS,
+        abi,
+        functionName: 'createAndFundProject',
+        args: [freelancer, descriptions, amounts],
+        value: totalAmount,
+      });
+      toast.info('Deployment & Funding transaction sent. Waiting for confirmation...');
+      await waitForTransactionReceipt(config, { hash });
+      toast.success('Project deployed and funded!');
+      return hash;
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create and fund project');
+      throw err;
+    }
+  };
+
   const fundProject = async (projectId: number, amount: bigint) => {
     try {
       const hash = await writeContractAsync({
@@ -33,31 +57,52 @@ export function useEscrow() {
     }
   };
 
-  const approveMilestone = async (projectId: number, milestoneId: number) => {
+  const assignFreelancer = async (projectId: number, freelancerAddress: `0x${string}`) => {
     try {
       const hash = await writeContractAsync({
         address: ESCROW_ADDRESS,
         abi,
-        functionName: 'approveMilestone',
-        args: [BigInt(projectId), BigInt(milestoneId)],
+        functionName: 'assignFreelancer',
+        args: [BigInt(projectId), freelancerAddress],
       });
-      toast.info('Approval transaction sent. Waiting for confirmation...');
+      toast.info('Assignment transaction sent. Waiting for confirmation...');
       await waitForTransactionReceipt(config, { hash });
-      toast.success('Approval confirmed!');
+      toast.success('Freelancer assigned on-chain!');
       return hash;
     } catch (err: any) {
-      toast.error(err.message || 'Failed to approve milestone');
+      toast.error(err.message || 'Failed to assign freelancer');
+      throw err;
+    }
+  };
+
+  const releasePayment = async (projectId: number, milestoneId: number) => {
+    try {
+      const hash = await writeContractAsync({
+        address: ESCROW_ADDRESS,
+        abi,
+        functionName: 'releasePayment',
+        args: [BigInt(projectId), BigInt(milestoneId)],
+      });
+      toast.info('Release transaction sent. Waiting for confirmation...');
+      await waitForTransactionReceipt(config, { hash });
+      toast.success('Payment released!');
+      return hash;
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to release payment');
       throw err;
     }
   };
 
   return {
+    createAndFundProject,
     fundProject,
-    approveMilestone,
+    assignFreelancer,
+    releasePayment,
     isPending: isWritePending || isTxLoading,
     isSuccess: isTxSuccess,
     hash,
     error: writeError,
   };
 }
+
 

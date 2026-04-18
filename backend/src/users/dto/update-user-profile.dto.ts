@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsUrl, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsUrl, ValidateIf } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '../schemas/user.schema';
 
@@ -35,8 +35,8 @@ export class UpdateUserProfileDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsString()
-  @IsUrl()
+  @ValidateIf((o) => o.website !== undefined && o.website !== '')
+  @IsUrl({}, { message: 'website must be a URL address' })
   website?: string;
 
   // --- Freelancer Fields ---
@@ -47,6 +47,7 @@ export class UpdateUserProfileDto {
 
   @ApiProperty({ required: false, type: [String] })
   @IsOptional()
+  @ValidateIf((o) => o.skills !== undefined && Array.isArray(o.skills) && o.skills.length > 0)
   @IsArray()
   @IsString({ each: true })
   skills?: string[];
@@ -58,19 +59,20 @@ export class UpdateUserProfileDto {
 
   @ApiProperty({ required: false, type: [String] })
   @IsOptional()
+  @ValidateIf((o) => o.portfolioLinks !== undefined && Array.isArray(o.portfolioLinks) && o.portfolioLinks.length > 0)
   @IsArray()
-  @IsUrl({}, { each: true })
+  @IsUrl({}, { each: true, message: 'each value in portfolioLinks must be a URL address' })
   portfolioLinks?: string[];
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsString()
-  @IsUrl()
+  @ValidateIf((o) => o.github !== undefined && o.github !== '')
+  @IsUrl({}, { message: 'github must be a URL address' })
   github?: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsString()
-  @IsUrl()
+  @ValidateIf((o) => o.linkedin !== undefined && o.linkedin !== '')
+  @IsUrl({}, { message: 'linkedin must be a URL address' })
   linkedin?: string;
 }

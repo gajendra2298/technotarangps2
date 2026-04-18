@@ -16,7 +16,7 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'User profile fetched successfully.' })
   @ApiResponse({ status: 401, description: 'Unauthorized. Invalid or missing JWT.' })
   async getProfile(@Req() req) {
-    return this.usersService.findByClerkId(req.user.sub);
+    return this.usersService.findById(req.user.sub);
   }
 
   @Patch('update-profile')
@@ -24,6 +24,6 @@ export class UsersController {
   @ApiBody({ type: UpdateUserProfileDto })
   @ApiResponse({ status: 200, description: 'Profile updated successfully.' })
   async updateProfile(@Req() req, @Body() body: UpdateUserProfileDto) {
-    return this.usersService.updateProfile(req.user.sub, body);
+    return this.usersService.updateProfileById(req.user.sub, body);
   }
 }

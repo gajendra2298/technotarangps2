@@ -6,6 +6,7 @@ import { Project, ProjectSchema } from './schemas/project.schema';
 import { ProjectUpdate, ProjectUpdateSchema } from './schemas/project-update.schema';
 import { AiModule } from '../ai/ai.module';
 import { AuthModule } from '../auth/auth.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AuthModule } from '../auth/auth.module';
     ]),
     AiModule,
     AuthModule,
+    UsersModule,
   ],
   controllers: [ProjectsController],
   providers: [ProjectsService],

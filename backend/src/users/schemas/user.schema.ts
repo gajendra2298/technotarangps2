@@ -15,6 +15,9 @@ export class User extends Document {
   @Prop({ required: true, unique: true })
   email: string;
 
+  @Prop({ unique: true, sparse: true })
+  address?: string; // Blockchain wallet address
+
   @Prop({ type: String, enum: UserRole, default: UserRole.FREELANCER })
   role: UserRole;
 

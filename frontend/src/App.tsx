@@ -1,37 +1,79 @@
-import '@rainbow-me/rainbowkit/styles.css';
-import { ClerkProvider, SignedIn, SignedOut, SignIn } from '@clerk/clerk-react';
-import { Provider } from 'react-redux';
-import { store } from './redux/store';
+import "@rainbow-me/rainbowkit/styles.css";
+import { ClerkProvider, SignedIn, SignedOut, SignIn } from "@clerk/clerk-react";
+import { Provider } from "react-redux";
+import { store } from "./redux/store";
+import { dark } from "@clerk/themes";
+
 import {
-  getDefaultConfig,
   RainbowKitProvider,
   darkTheme,
-} from '@rainbow-me/rainbowkit';
-import { WagmiProvider } from 'wagmi';
-import { polygonAmoy } from 'wagmi/chains';
-import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
-import { Dashboard } from './pages/Dashboard';
-import { ProfilePage } from './pages/Profile';
-import { ForgotPasswordPage } from './pages/ForgotPassword';
-import { Navbar } from './components/Navbar';
-import { Toaster } from 'sonner';
-import { AuthWatcher } from './components/AuthWatcher';
-import { AuthProvider } from './context/AuthContext';
-import { useState } from 'react';
-import { AlertTriangle, ExternalLink } from 'lucide-react';
-import { Button } from './components/ui';
+  connectorsForWallets,
+} from "@rainbow-me/rainbowkit";
+import {
+  metaMaskWallet,
+  injectedWallet,
+  walletConnectWallet,
+  coinbaseWallet,
+} from "@rainbow-me/rainbowkit/wallets";
+import { WagmiProvider, createConfig, createStorage, http } from "wagmi";
+import { polygonAmoy } from "wagmi/chains";
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import { Dashboard } from "./pages/Dashboard";
+import { ProfilePage } from "./pages/Profile";
+import { ForgotPasswordPage } from "./pages/ForgotPassword";
+import { Navbar } from "./components/Navbar";
+import { Toaster } from "sonner";
+import { AuthWatcher } from "./components/AuthWatcher";
+import { AuthProvider } from "./context/AuthContext";
+import { useState } from "react";
+import { AlertTriangle, ExternalLink } from "lucide-react";
+import { Button } from "./components/ui";
 
 const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-const IS_CONFIGURED = CLERK_KEY && !CLERK_KEY.includes('placeholder');
+const IS_CONFIGURED = CLERK_KEY && !CLERK_KEY.includes("placeholder");
 
-const config = getDefaultConfig({
-  appName: 'Freelance Escrow',
-  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'dummy_id',
+const PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "dummy_id";
+
+// Build RainbowKit connectors explicitly so RainbowKit's wallet modal still works.
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: "Popular",
+      wallets: [
+        metaMaskWallet,
+        injectedWallet,
+        walletConnectWallet,
+        coinbaseWallet,
+      ],
+    },
+  ],
+  {
+    appName: "Freelance Escrow",
+    projectId: PROJECT_ID,
+  },
+);
+
+// Use wagmi's createConfig directly with explicit localStorage storage.
+// This is required because getDefaultConfig from RainbowKit was not persisting
+// the connection state to localStorage (wagmi.store always had empty connections).
+const config = createConfig({
   chains: [polygonAmoy],
-  ssr: false,
+  connectors,
+  storage: createStorage({ storage: window.localStorage }),
+  transports: {
+    [polygonAmoy.id]: http(),
+  },
 });
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000,
+      gcTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function MissingConfig() {
   return (
@@ -42,9 +84,15 @@ function MissingConfig() {
           <AlertTriangle className="w-8 h-8 text-warning" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Configuration Required</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Configuration Required
+          </h1>
           <p className="text-muted-foreground mt-2 text-sm">
-            We couldn't detect your Clerk Publishable Key in the <code className="bg-secondary px-1.5 py-0.5 rounded text-primary">.env</code> file.
+            We couldn't detect your Clerk Publishable Key in the{" "}
+            <code className="bg-secondary px-1.5 py-0.5 rounded text-primary">
+              .env
+            </code>{" "}
+            file.
           </p>
         </div>
 
@@ -54,9 +102,14 @@ function MissingConfig() {
         </div>
 
         <div className="space-y-3 pt-2">
-          <Button 
-            className="w-full gap-2" 
-            onClick={() => window.open('https://dashboard.clerk.com/last-active?path=api-keys', '_blank')}
+          <Button
+            className="w-full gap-2"
+            onClick={() =>
+              window.open(
+                "https://dashboard.clerk.com/last-active?path=api-keys",
+                "_blank",
+              )
+            }
           >
             Get Keys from Clerk <ExternalLink className="w-4 h-4" />
           </Button>
@@ -70,29 +123,50 @@ function MissingConfig() {
 }
 
 function AppLayout() {
-  const [currentPage, setCurrentPage] = useState<'DASHBOARD' | 'PROFILE'>('DASHBOARD');
+  const [currentPage, setCurrentPage] = useState<"DASHBOARD" | "PROFILE">(
+    "DASHBOARD",
+  );
+  const [show, setShow] = useState(false);
 
   return (
     <div className="min-h-screen bg-background text-foreground dark">
       <Toaster position="top-center" richColors />
       <AuthWatcher />
-      <Navbar onProfileClick={() => setCurrentPage('PROFILE')} onLogoClick={() => setCurrentPage('DASHBOARD')} />
-      
+      <Navbar
+        onProfileClick={() => setCurrentPage("PROFILE")}
+        onLogoClick={() => setCurrentPage("DASHBOARD")}
+      />
+
       <main className="container mx-auto px-4 py-8">
         <SignedOut>
-          <div className="flex flex-col items-center justify-center pt-20">
-            <div className="w-full max-w-sm mb-8">
-               <ForgotPasswordPage />
-            </div>
+          <div className="flex flex-col items-center justify-center ">
             <div className="w-full max-w-md p-8 bg-card rounded-2xl border glass shadow-2xl">
-              <h1 className="text-3xl font-bold text-center mb-6">Welcome back</h1>
-              <SignIn routing="hash" />
+              {show ? (
+                <div className="w-full max-w-sm mb-8">
+                  <ForgotPasswordPage />
+                </div>
+              ) : (
+                <>
+                  <h1 className="text-3xl font-bold text-center mb-6">
+                    Welcome back
+                  </h1>
+                  <SignIn appearance={{ theme: dark }} routing="hash" />
+                </>
+              )}
+              <div className="flex items-center text-xs font-semibold cursor-pointer justify-center mt-5 ">
+                <span>
+                  Need Help ? |{" "}
+                  <button onClick={() => setShow(!show)} className="hover:border-b border-purple-500 duration-300 transiton-all cursor-pointer text-purple-500">
+                    {show ? "Back to Login" : "Forgot Password ?"}
+                  </button>
+                </span>
+              </div>
             </div>
           </div>
         </SignedOut>
-        
+
         <SignedIn>
-          {currentPage === 'DASHBOARD' ? <Dashboard /> : <ProfilePage />}
+          {currentPage === "DASHBOARD" ? <Dashboard /> : <ProfilePage />}
         </SignedIn>
       </main>
     </div>
@@ -110,10 +184,10 @@ function App() {
         <AuthProvider>
           <WagmiProvider config={config}>
             <QueryClientProvider client={queryClient}>
-              <RainbowKitProvider 
+              <RainbowKitProvider
                 theme={darkTheme({
-                  accentColor: '#7c3aed',
-                  borderRadius: 'large',
+                  accentColor: "#7c3aed",
+                  borderRadius: "large",
                 })}
               >
                 <AppLayout />

@@ -25,6 +25,7 @@
   --radius-sm: calc(var(--radius) - 4px);
 }
 
+
 @layer base {
   :root {
     --background: 240 10% 98%;
@@ -88,4 +89,12 @@
 
 .gradient-text {
   @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-600;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

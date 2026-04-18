@@ -11,10 +11,31 @@ export const abi = [
     "type": "function"
   },
   {
+    "inputs": [
+      { "internalType": "address", "name": "_freelancer", "type": "address" },
+      { "internalType": "string[]", "name": "_descriptions", "type": "string[]" },
+      { "internalType": "uint256[]", "name": "_amounts", "type": "uint256[]" }
+    ],
+    "name": "createAndFundProject",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
     "inputs": [{ "internalType": "uint256", "name": "_projectId", "type": "uint256" }],
     "name": "fundProject",
     "outputs": [],
     "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "_projectId", "type": "uint256" },
+      { "internalType": "address", "name": "_freelancer", "type": "address" }
+    ],
+    "name": "assignFreelancer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -32,7 +53,7 @@ export const abi = [
       { "internalType": "uint256", "name": "_projectId", "type": "uint256" },
       { "internalType": "uint256", "name": "_milestoneId", "type": "uint256" }
     ],
-    "name": "approveMilestone",
+    "name": "releasePayment",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
